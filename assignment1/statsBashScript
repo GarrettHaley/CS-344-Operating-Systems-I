@@ -1,0 +1,113 @@
+#!/bin/sh
+# Garrett haley
+# Date: 04/12/2017
+# Assignment one, Operating Systems I
+# Sources cited: John Stowers, Brandon Lee, Stanford programming tools pdf.
+#GLB Vars,tempFiles,argument tools,& userFile
+Mean=0
+Median=0
+standardInFile=$(mktemp)
+activeFile=$(mktemp)
+argCount="$#"
+arguments=("$@") 
+userFile=${arguments[1]} # second argument in arguments
+# starts and controls the flow of the program
+function main {
+    validateArgs
+    calculations
+    exit 0
+}
+# Interprets arguments from the command line
+function validateArgs {
+    if [[ $argCount -eq 2 && ! -r $userFile ]]; then
+            echo "This program is unable to read your file. Please try again"
+            error
+        fi
+      if [[ $argCount -ne 1 && $argCount -ne 2 ]]; then
+        echo "Please verfiy that you are using the proper syntax for a stats command line argument"
+        error
+        fi
+	
+    # if none of the above statements are valid, then we must read in out stdIn
+    if [[ $argCount -ne 2 ]]; then
+        while read l; do
+            echo "$l" >> $standardInFile
+        done < "${2:-/dev/stdin}"
+        userFile=$standardInFile
+ 	 fi
+
+}
+#Decides if we need to calculate the rows or columns and calls the appropriate function
+function calculations {
+    if [[ ! ${arguments[0]} =~ "-r" && ! ${arguments[0]} =~ "-c" ]]; then
+	echo "you must select either -columns or -rows in your command line arguement"
+        error
+        fi
+     if [[ ${arguments[0]} =~ "-c" ]]; then
+       calcCols
+       fi
+     if [[ ${arguments[0]} =~ "-r" ]]; then
+       calcRows
+     fi
+}
+# Prepares data for median and mean calculatons and prints the values
+function calcCols {
+    echo "Mean|Median"
+    colCount=$(cut -c 1 $userFile | wc -w)
+    lineOne=$(head -n 1 $userFile)
+    totalCols=($(echo $lineOne | wc -w))
+    for col in $(seq 1 $totalCols)
+    do
+        splitCol=$(cut -f $col $userFile | tr "\t" "\n")
+        colTotal=0
+        for elem in $splitCol
+        do
+            colTotal=$(expr $elem + $colTotal)
+        done
+        calcMean $colCount $colTotal
+        calcMedian "$splitCol" $colCount
+        echo "$Mean  $MedianVal"
+    done
+}
+# Prepares data for median and mean calculations and prints the values
+function calcRows {
+    echo "Mean|Median"
+    while read l; do
+        rowCount=($(echo $l | wc -w))
+        elementsToCol=$(echo $l | tr "\t" "\n")
+        elementTotal=0
+        for item in $elementsToCol
+        do
+            elementTotal=$(expr $item + $elementTotal)
+        done
+	 calcMedian "$elementsToCol" $rowCount
+         calcMean  $rowCount $elementTotal
+        echo "$Mean  $MedianVal"
+    done <$userFile
+}
+#All functions below this comment are helper functions used in the functions above
+# Calculates Median
+function calcMedian {
+    elements=$1
+    Size=$2
+    echo $elements | tr " " "\n" | sort -g > $activeFile
+    MedianPosition=$(expr $Size / 2 + 1)
+    MedianVal=$(awk 'NR=='$MedianPosition'' $activeFile)
+}
+# Finds the Mean
+function calcMean {
+    total=$2
+    Size=$1
+    Mean=$(expr $total + $(expr $Size / 2))
+    if [[ $Size == 0 ]]; then
+        Mean=""
+    else
+        Mean=$(expr $Mean / $Size)
+    fi
+}
+# General error message needed to provide user with the correct command line argument
+function error {
+    echo "The proper command line argument for stats program: stats {-rows|-cols} [file]"
+    exit 1
+}
+main
